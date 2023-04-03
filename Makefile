@@ -188,11 +188,14 @@ ggml.o: ggml.c ggml.h
 utils.o: utils.cpp utils.h
 	$(CXX) $(CXXFLAGS) -c utils.cpp -o utils.o
 
+http.o: http.cpp http.h deps/cpp-httplib/httplib.h deps/json/single_include/nlohmann/json.hpp
+	$(CXX) $(CXXFLAGS) -c http.cpp -o http.o
+
 clean:
 	rm -f *.o main quantize
 
-chat: chat.cpp ggml.o utils.o
-	$(CXX) $(CXXFLAGS) chat.cpp ggml.o utils.o -o chat $(LDFLAGS)
+chat: chat.cpp ggml.o utils.o http.o
+	$(CXX) $(CXXFLAGS) chat.cpp http.o ggml.o utils.o -o chat $(LDFLAGS)
 
 chat_mac: chat.cpp ggml.c utils.cpp
 	$(CC)  $(CFLAGS)   -c ggml.c -o ggml_x86.o -target x86_64-apple-macos

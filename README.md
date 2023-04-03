@@ -1,3 +1,61 @@
+# Alpaca.http
+
+Adds an HTTP server with a very simple REST interface.
+
+### Interface
+
+`POST /prompt` with the prompt given in the request body as `text/plain`. Returns the prompt's ID as `text/plain`.
+
+`GET /prompt/:id` with a prompt `:id` to retrieve the prompt & response as `application/json`. If the response is still pending, will return HTTP code 202 with no body. If the `:id` is not valid, returns HTTP 404.
+
+### Example
+```shell
+$ curl -d "tell me about alpacas" http://127.0.0.1:42000/prompt
+1e18e1d50423fa29
+$ curl -v http://127.0.0.1:42000/prompt/1e18e1d50423fa29
+...
+< HTTP/1.1 202 Accepted
+...
+$ sleep 30
+$ curl -s http://127.0.0.1:42000/prompt/1e18e1d50423fa29 | jq .
+{
+  "prompt": "tell me about alpacas",
+  "response": "Alpacas are small to medium-sized animals native to South America. They belong to the family Camelidae and genus Vicugna, which is composed of three species -Vicugna vicua (South American camelid), V. guadaloupensis (Guadalupe alpaca) ,and V. pacu(Peruvian alpaca). Alpacas are raised primarily for their fleece and meat, but they also have been bred as companion animals in some parts of the world. They typically live between 8 to 10 years in captivity, although one record-holding female lived up to 23 years.",
+  "elapsed_ms": 66764.3,
+  "tokens": 165,
+  "ms_per_token": 404.632
+}
+```
+
+### Building
+
+Initialize the repository's submodule(s):
+
+```shell
+$ git submodule update --init --recursive
+Submodule 'deps/cpp-httplib' (https://github.com/yhirose/cpp-httplib.git) registered for path 'deps/cpp-httplib'
+Cloning into '/home/noname/repos/alpaca.http/deps/cpp-httplib'...
+Submodule path 'deps/cpp-httplib': checked out 'a66a013ed78dee11701d6075c6b713307004a126'
+```
+
+Then simply follow the [Building from Source (MacOS/Linux)](#building-from-source-macoslinux) instructions below (has not been tested on Windows).
+
+### Running
+
+Enable the HTTP server by including the `-H` (or `--http`) command line option.
+
+If no argument is given, will use the default hostname and port pair (currently `127.0.0.1` and `42000`). Otherwise, the argument must be a string of the form "hostname:port".
+
+For example, to bind to `0.0.0.0` on port `12345`:
+
+```shell
+$ ./chat -m ./ggml-alpaca-7b-q4.bin -H 0.0.0.0:12345
+
+```
+When in HTTP mode (`-H`/`--http`), interactive mode is automatically disabled regardless of related any command line options.
+
+---
+
 # Alpaca.cpp
 
 Run a fast ChatGPT-like model locally on your device. The screencast below is not sped up and running on an M2 Macbook Air with 4GB of weights. 

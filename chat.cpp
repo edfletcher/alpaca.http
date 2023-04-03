@@ -1,6 +1,7 @@
 #include "ggml.h"
 
 #include "utils.h"
+#include "http.h"
 
 #include <cassert>
 #include <cmath>
@@ -10,6 +11,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <sstream>
 
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
 #include <signal.h>
@@ -791,6 +793,9 @@ const char * llama_print_system_info(void) {
     return s.c_str();
 }
 
+static http_prompt_servicer _http_prompt_servicer;
+static std::stringstream _http_response_buffer("");
+
 int main(int argc, char ** argv) {
     ggml_time_init();
     const int64_t t_main_start_us = ggml_time_us();
@@ -836,6 +841,16 @@ int main(int argc, char ** argv) {
         fprintf(stderr, "\n");
         fprintf(stderr, "system_info: n_threads = %d / %d | %s\n",
                 params.n_threads, std::thread::hardware_concurrency(), llama_print_system_info());
+    }
+
+    if (params.http_enabled) {
+        // ensure that no other options override the operating mode we need
+        params.interactive = false;
+        params.interactive_start = false;
+        params.use_color = false;
+        params.prompt = "";
+        _http_prompt_servicer = http_server_run(params.http_host, params.http_port);
+        fprintf(stderr, "\nHTTP server listening on %s:%d\n", params.http_host.c_str(), params.http_port);
     }
 
     int n_past = 0;
@@ -944,9 +959,11 @@ int main(int argc, char ** argv) {
         printf(ANSI_COLOR_YELLOW);
     }
 
-    
+    if (params.http_enabled) {
+        embd_inp.erase(embd_inp.begin());
+    }
 
-    while (remaining_tokens > 0) {
+    while (params.http_enabled || remaining_tokens > 0) {
         // predict
         if (embd.size() > 0) {
             const int64_t t_start_us = ggml_time_us();
@@ -1015,7 +1032,11 @@ int main(int argc, char ** argv) {
         // display text
         if (!input_noecho) {
             for (auto id : embd) {
-                printf("%s", vocab.id_to_token[id].c_str());
+                auto tok_str = vocab.id_to_token[id];
+                _http_response_buffer << tok_str;
+                if (!params.http_enabled) {
+                    printf("%s", tok_str.c_str());
+                }
             }
             fflush(stdout);
         }
@@ -1076,6 +1097,39 @@ int main(int argc, char ** argv) {
 
         // end of text token
         if (embd.back() == 2) {
+            if (params.http_enabled) {
+                auto pred_elapsed = t_predict_us/1000.0f;
+                auto num_tokens = n_past;
+                t_predict_us = n_past = 0;
+
+                auto resp_str = _http_response_buffer.str();
+
+                auto resp_header_idx = resp_str.find("### Response:\n");
+                if (resp_header_idx != std::string::npos) {
+                    resp_str = resp_str.substr(resp_header_idx + strlen("### Response:\n") + 1);
+                }
+
+                std::string* resp = nullptr;
+                if (resp_str != "" && resp_str != "<nooutput>") {
+                    resp = &resp_str;
+                    fprintf(stderr, "[%s] << Responding with:\n\t\"%s\"\n", iso8601_timestamp().c_str(), resp_str.c_str());
+                    fprintf(stderr, "[%s] ** predict time = %8.2f ms / %.2f ms per token (count: %d)\n", 
+                        iso8601_timestamp().c_str(), pred_elapsed, pred_elapsed/num_tokens, num_tokens);
+                }
+
+                auto new_prompt = _http_prompt_servicer(resp, pred_elapsed, num_tokens);
+                fprintf(stderr, "[%s] >> Prompting with: \"%s\"\n", iso8601_timestamp().c_str(), new_prompt.c_str());
+
+                embd_inp.insert(embd_inp.end(), prompt_inp.begin(), prompt_inp.end());
+                std::vector<gpt_vocab::id> line_inp = ::llama_tokenize(vocab, new_prompt, false);
+                embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
+                embd_inp.insert(embd_inp.end(), response_inp.begin(), response_inp.end());
+                remaining_tokens -= prompt_inp.size() + line_inp.size() + response_inp.size();
+
+                _http_response_buffer = std::stringstream("");
+                continue;
+            }
+
             if (params.interactive) {
                 is_interacting = true;
                 continue;

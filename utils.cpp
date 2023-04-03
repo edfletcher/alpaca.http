@@ -15,6 +15,15 @@
  #include <alloca.h>
  #endif
 
+std::string iso8601_timestamp()
+{
+    time_t now;
+    time(&now);
+    char buf[sizeof "YYYY-MM-DDTHH:mm:SSZ"];
+    strftime(buf, sizeof buf, "%FT%TZ", gmtime(&now));
+    return std::string(buf);
+}
+
 bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -23,6 +32,17 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             params.seed = std::stoi(argv[++i]);
         } else if (arg == "-t" || arg == "--threads") {
             params.n_threads = std::stoi(argv[++i]);
+        } else if (arg == "-H" || arg == "--http") {
+            params.http_enabled = true;
+
+            if (i + 1 < argc && argv[i + 1] && argv[i + 1][0] != '-') {
+                auto hostport_str = std::string(argv[++i]);
+                auto colon_pos = hostport_str.find(':');
+                if (colon_pos != std::string::npos) {
+                    params.http_host = hostport_str.substr(0, colon_pos);
+                    params.http_port = std::stoi(hostport_str.substr(colon_pos + 1));
+                }
+            }
         } else if (arg == "-p" || arg == "--prompt") {
             params.interactive = false;
             params.interactive_start = false;
@@ -88,6 +108,8 @@ void gpt_print_usage(int argc, char ** argv, const gpt_params & params) {
     fprintf(stderr, "  -h, --help            show this help message and exit\n");
     fprintf(stderr, "  -i, --interactive     run in interactive mode\n");
     fprintf(stderr, "  --interactive-start   run in interactive mode and poll user input at startup\n");
+    fprintf(stderr, "  -H host:port, --http host:port\n");
+    fprintf(stderr, "                        run an HTTP server instead of prompting locally\n");
     fprintf(stderr, "  -r PROMPT, --reverse-prompt PROMPT\n");
     fprintf(stderr, "                        in interactive mode, poll user input upon seeing PROMPT\n");
     fprintf(stderr, "  --color               colorise output to distinguish prompt and user input from generations\n");

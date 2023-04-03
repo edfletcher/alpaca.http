@@ -8,6 +8,8 @@
 #include <random>
 #include <thread>
 
+std::string iso8601_timestamp();
+
 //
 // CLI argument parsing
 //
@@ -36,6 +38,10 @@ struct gpt_params {
     bool interactive = true; // interactive mode
     bool interactive_start = true; // reverse prompt immediately
     std::string antiprompt = ""; // string upon seeing which more user input is prompted
+
+    std::string http_host = "127.0.0.1"; // http server hostname
+    uint16_t http_port = 42000; // http server port
+    bool http_enabled = false; // http server enabled
 };
 
 bool gpt_params_parse(int argc, char ** argv, gpt_params & params);
