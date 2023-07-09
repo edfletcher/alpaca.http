@@ -63,6 +63,10 @@ void _http_server_run(_http_server_starter go, _http_put_prompt_on_queue put_q, 
                 _request_wrapper([put_q](const httplib::Request &req, httplib::Response &res)
                                  {
         auto new_id = put_q(req.body);
+				if (new_id == 0) {
+					res.status = 413;
+					return std::string("");
+				}
         std::stringstream s;
         s << std::hex << new_id;
         res.set_content(s.str() + "\n", "text/plain");
@@ -109,7 +113,7 @@ uint_fast64_t _unique_id(_map_t *m)
     return try_id;
 }
 
-http_prompt_servicer http_server_run(std::string &hostname, uint16_t port)
+http_prompt_servicer http_server_run(std::string &hostname, uint16_t port, int32_t context_size)
 {
     std::mutex *q_lock = new std::mutex;
     _queue_t *q = new _queue_t;
@@ -122,8 +126,11 @@ http_prompt_servicer http_server_run(std::string &hostname, uint16_t port)
         {
             server.listen(hostname, port);
         },
-        [q, q_lock, m](std::string prompt)
+        [q, q_lock, m, context_size](std::string prompt)
         {
+						if (prompt.length() > context_size) {
+							return (long unsigned)0;
+						}
             std::lock_guard<std::mutex> lg(*q_lock);
             auto id = _unique_id(m);
             q->push_back(std::make_pair(id, prompt));

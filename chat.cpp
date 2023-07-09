@@ -849,8 +849,9 @@ int main(int argc, char ** argv) {
         params.interactive_start = false;
         params.use_color = false;
         params.prompt = "";
-        _http_prompt_servicer = http_server_run(params.http_host, params.http_port);
-        fprintf(stderr, "\nHTTP server listening on %s:%d\n", params.http_host.c_str(), params.http_port);
+        _http_prompt_servicer = http_server_run(params.http_host, params.http_port, params.n_ctx);
+        fprintf(stderr, "\nHTTP server listening on %s:%d, max prompt length: %d\n",
+					params.http_host.c_str(), params.http_port, params.n_ctx);
     }
 
     int n_past = 0;

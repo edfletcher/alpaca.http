@@ -4,7 +4,7 @@ Adds an HTTP server with a very simple REST interface.
 
 ### Interface
 
-`POST /prompt` with the prompt given in the request body as `text/plain`. Returns the prompt's ID as `text/plain`.
+`POST /prompt` with the prompt given in the request body as `text/plain`. Returns the prompt's ID as `text/plain`, or HTTP 413 if the prompt is too large.
 
 `GET /prompt/:id` with a prompt `:id` to retrieve the prompt & response as `application/json`. If the response is still pending, will return HTTP code 202 with no body. If the `:id` is not valid, returns HTTP 404.
 
