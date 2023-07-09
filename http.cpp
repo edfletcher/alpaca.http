@@ -63,10 +63,10 @@ void _http_server_run(_http_server_starter go, _http_put_prompt_on_queue put_q, 
                 _request_wrapper([put_q](const httplib::Request &req, httplib::Response &res)
                                  {
         auto new_id = put_q(req.body);
-				if (new_id == 0) {
-					res.status = 413;
-					return std::string("");
-				}
+        if (new_id == 0) {
+            res.status = 413;
+            return std::string("");
+        }
         std::stringstream s;
         s << std::hex << new_id;
         res.set_content(s.str() + "\n", "text/plain");
