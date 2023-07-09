@@ -128,9 +128,10 @@ http_prompt_servicer http_server_run(std::string &hostname, uint16_t port, int32
         },
         [q, q_lock, m, context_size](std::string prompt)
         {
-						if (prompt.length() > context_size) {
-							return (long unsigned)0;
-						}
+            if (prompt.length() > context_size)
+            {
+                return (long unsigned)0;
+            }
             std::lock_guard<std::mutex> lg(*q_lock);
             auto id = _unique_id(m);
             q->push_back(std::make_pair(id, prompt));
